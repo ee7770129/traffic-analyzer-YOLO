@@ -1,0 +1,25 @@
+# 請務必保持 UTF-8 編碼。
+#
+# 安裝步驟（Windows）：
+#   conda create --name traffic python=3.10 -y
+#   conda activate traffic
+#   pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+#   pip install -r requirements.txt
+#
+# 注意事項：
+#   1. torch 需依顯示卡 CUDA 版本另行安裝，故不列於本檔案。
+#   2. 原始專案相依的 cython-bbox 在 Windows 需要 MSVC 編譯器，
+#      本專案改以 cython_bbox.py（純 NumPy 相容層）取代，無須安裝。
+#   3. 原始專案相依的 lap 在 Windows 不易編譯，改用官方維護的 lapx，
+#      模組名稱同為 lap，程式不需調整。
+#   4. tensorrt 為選配加速套件，未安裝亦可正常執行。
+
+ultralytics==8.2.38
+numpy==1.26.4
+opencv-python==4.9.0.80
+pillow>=10.0.0
+shapely==2.0.3
+scipy>=1.10.0
+lapx>=0.5.0
+hydra-core==1.3.2
+python-dotenv>=1.0.0
