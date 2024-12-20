@@ -1,0 +1,130 @@
+# 請以繁體中文產生程式碼註解。請務必保持 UTF-8 編碼。
+#
+# 檔案名稱：主設定檔
+# 功能說明：集中管理所有可調參數，程式內不寫死任何數值。
+#           可用 ${oc.env:變數名,預設值} 由環境變數（.env）覆寫，
+#           也可在啟動時以命令列覆寫，例如：
+#               python main.py video_reader.src=my_video.mp4
+#               python main.py pipeline.save_video=true
+# 建立日期：2024-12-18
+# 最後更新：2025-02-24
+# 版本號：v1.0.0
+
+# --------------------------------------------------------------------------
+# HYDRA
+# --------------------------------------------------------------------------
+defaults:
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: custom
+
+hydra:
+  output_subdir: null   # 不產生 .hydra 設定備份資料夾
+  run:
+    dir: .              # 不變更工作目錄，維持相對路徑可用
+
+# --------------------------------------------------------------------------
+# 流水線開關
+# --------------------------------------------------------------------------
+pipeline:
+  show_window: true     # 是否開啟即時預覽視窗（按 Q 可提前結束）
+  save_video: false     # 是否輸出帶有疊加圖層的成果影片
+  write_report: true    # 是否輸出統計報表 CSV
+
+# --------------------------------------------------------------------------
+# 一般參數
+# --------------------------------------------------------------------------
+general:
+  # 各道路代表色（BGR），同時用於區域輪廓與車輛邊界框
+  colors_of_roads:
+    1: [102, 204, 255]
+    2: [80, 80, 240]
+    3: [90, 200, 120]
+    4: [200, 120, 220]
+    5: [30, 165, 235]
+
+  track_timeout_secs: 2.0     # 超過此秒數未再偵測到即視為車輛離場
+  min_track_life_secs: 1.5    # 軌跡存活時間門檻，低於此值不計入統計
+  min_vote_count: 5           # 成功辨識幀數門檻，用於濾除破碎軌跡
+  flow_window_secs: 30.0      # 即時流率的滑動視窗長度（秒）
+
+# --------------------------------------------------------------------------
+# 車種對照與 PCU 當量
+# --------------------------------------------------------------------------
+vehicle_types:
+  # YOLO（COCO）英文類別名稱 → 繁體中文車種名稱
+  name_mapping:
+    car: 小客車
+    motorcycle: 機車
+    bus: 大客車
+    truck: 大貨車
+
+  # 小客車當量（PCU），預設值參考台灣公路容量手冊平面路口慣用值，
+  # 實際應用請依標的路口特性調整
+  pcu_factors:
+    小客車: 1.0
+    機車: 0.5
+    大客車: 2.0
+    大貨車: 2.0
+
+  unknown_label: 其他車種   # 未列於對照表的類別統一歸類
+  unknown_pcu: 1.0
+
+# --------------------------------------------------------------------------
+# 節點設定
+# --------------------------------------------------------------------------
+video_reader:
+  # 影片檔路徑、攝影機編號（整數）或 RTSP / m3u8 串流網址
+  src: ${oc.env:TRAFFIC_VIDEO_SRC,test_videos/test_video.mp4}
+  roads_info: ${oc.env:TRAFFIC_ROADS_INFO,configs/roads_polygons.json}
+  skip_secs: 0            # 抽幀間隔（秒），0 表示逐幀處理
+  camera_width: 1920      # 僅在來源為攝影機時生效
+  camera_height: 1080
+
+detection_node:
+  weight_pth: ${oc.env:TRAFFIC_WEIGHTS,weights/yolov8m.pt}
+  classes_to_detect: [2, 3, 5, 7]   # COCO：小客車、機車、大客車、大貨車
+  confidence: 0.10        # 偵測信心門檻，越高偵測越少
+  iou: 0.7                # NMS 門檻
+  imgsz: 640              # 推論解析度
+  class_match_iou: 0.45   # 追蹤框對回偵測框以還原車種的最低 IoU
+
+tracking_node:
+  # ByteTrack 參數，track_buffer 以「幀」為單位
+  first_track_thresh: 0.5
+  second_track_thresh: 0.10
+  match_thresh: 0.95
+  track_buffer: 125
+
+render_node:
+  show_roi: true          # 是否繪製道路區域輪廓
+  show_labels: true       # 是否顯示車輛標籤（編號與車種）
+  show_panel: true        # 是否顯示右側統計面板
+  draw_fps: true          # 是否顯示處理速度
+  panel_width: 520        # 統計面板寬度（像素）
+  box_thickness: 2
+  fps_window_frames: 15   # FPS 平均視窗
+  window_scale: 0.7       # 預覽視窗縮放比例（不影響輸出影片）
+
+  # 中文字型候選路徑，依序嘗試，第一個存在者勝出
+  font_candidates:
+    - ${oc.env:TRAFFIC_FONT_PATH,C:/Windows/Fonts/msjh.ttc}
+    - C:/Windows/Fonts/msjhbd.ttc
+    - C:/Windows/Fonts/mingliu.ttc
+    - /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+
+  font_sizes:
+    small: 17
+    normal: 22
+    large: 30
+
+report_node:
+  interval_seconds: 60.0        # 時段流量的統計區間；正式調查建議改為 900（15 分鐘）
+  csv_encoding: utf-8-sig       # 含 BOM，確保 Excel 開啟中文不亂碼
+
+video_writer_node:
+  fps: 24
+  fourcc: mp4v
+
+output:
+  folder: ${oc.env:TRAFFIC_OUTPUT_DIR,outputs}   # 所有執行結果的根目錄
