@@ -1,0 +1,28 @@
+# 請務必保持 UTF-8 編碼。
+#
+# 檔案名稱：Git 忽略清單
+# 功能說明：排除執行產物、本機設定與大型二進位檔，避免污染版本控管。
+# 建立日期：2025-02-24
+
+# ---- Python 執行產物 ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ---- 本機環境設定（含路徑與金鑰，不得提交）----
+.env
+
+# ---- 分析結果（每次執行都會重新產生，體積大）----
+outputs/
+
+# ---- 模型權重與測試素材（體積大，另行取得）----
+weights/*.pt
+weights/*.engine
+test_videos/*.mp4
+
+# ---- 編輯器與作業系統 ----
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
