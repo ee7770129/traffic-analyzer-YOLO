@@ -49,6 +49,10 @@ class TrackElement:
         self.counted_entry = False      # 是否已計入進入流量
         self.counted_movement = False   # 是否已計入轉向 OD 矩陣
 
+        # 計入當下所採用的車種。計數發生在軌跡剛達門檻時（票數還少），
+        # 之後票數累積可能改變多數決結果，離場時需據此回頭修正統計。
+        self.counted_vehicle_type: Optional[str] = None
+
         # ---- 其他 ----
         self.last_xyxy: Optional[list] = None  # 最後一次的邊界框，供繪圖使用
 
