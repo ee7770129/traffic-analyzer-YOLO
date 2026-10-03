@@ -86,6 +86,10 @@ class CountingNode:
             events.extend(self._count_entry(track, timestamp))
             events.extend(self._count_movement(track, timestamp))
 
+        # 離場是最後一次機會，以累積最完整的票數修正先前計入的車種
+        for track in element.retired_tracks:
+            events.extend(self._reconcile_vehicle_type(track, timestamp))
+
         self._trim_flow_window(timestamp)
 
         element.count_events = events
@@ -110,6 +114,7 @@ class CountingNode:
         track.counted_entry = True
 
         vehicle_type = track.vehicle_type or self.vehicle_types.unknown_label
+        track.counted_vehicle_type = vehicle_type
         pcu = self.vehicle_types.pcu_of(vehicle_type)
 
         self.entry_counts[track.entry_road][vehicle_type] += 1
@@ -151,6 +156,52 @@ class CountingNode:
                 "進入道路": track.entry_road,
                 "離開道路": track.exit_road,
                 "車種": vehicle_type,
+            }
+        ]
+
+    def _reconcile_vehicle_type(self, track, timestamp: float) -> list:
+        """
+        以離場時的最終多數決修正先前計入的車種。
+
+        計數發生在軌跡剛達門檻時，當下可能只有 5 票；
+        而離場時往往已累積數百票，判定可靠得多。
+        不修正的話，統計總表採用的會是最不可靠的那個版本。
+
+        回傳：
+            有修正時回傳一筆修正事件，否則回傳空串列。
+        """
+        if not track.counted_entry or track.counted_vehicle_type is None:
+            return []
+
+        final_type = track.vehicle_type or self.vehicle_types.unknown_label
+        previous_type = track.counted_vehicle_type
+        if final_type == previous_type:
+            return []
+
+        road = track.entry_road
+        self.entry_counts[road][previous_type] -= 1
+        if self.entry_counts[road][previous_type] <= 0:
+            del self.entry_counts[road][previous_type]
+        self.entry_counts[road][final_type] += 1
+
+        self.total_pcu += (
+            self.vehicle_types.pcu_of(final_type) - self.vehicle_types.pcu_of(previous_type)
+        )
+        track.counted_vehicle_type = final_type
+
+        logger.debug(
+            "軌跡 %d 車種修正：%s → %s（票數 %d）",
+            track.track_id, previous_type, final_type, track.vote_count,
+        )
+
+        return [
+            {
+                "事件": "車種修正",
+                "時間": timestamp,
+                "追蹤編號": track.track_id,
+                "道路": road,
+                "原車種": previous_type,
+                "車種": final_type,
             }
         ]
 

@@ -4,18 +4,27 @@
 
 模組名稱：統計報表輸出節點
 功能說明：
-    蒐集計數節點產生的事件與已離場的車輛軌跡，於分析結束時輸出四份 CSV 報表：
+    蒐集已離場的車輛軌跡，於分析結束時輸出四份 CSV 報表：
 
         1. 車輛明細.csv：每台車一列，含進出道路、車種、時間，可與影片逐筆核對。
         2. 時段流量.csv：依設定的時間區間彙總各道路、各車種的車次與 PCU。
         3. 轉向矩陣.csv：進入道路 × 離開道路 的轉向 OD 矩陣。
         4. 統計總表.csv：全時段彙總，含各道路車次、車種組成、PCU 與平均流率。
 
+資料來源的設計決策：
+    四份報表一律由「已離場的軌跡紀錄」推導，而非由計數當下發出的事件。
+
+    原因是計數發生在軌跡剛達門檻時（可能只有 5 票），
+    而離場時的車種多數決往往已累積數百票，可靠得多。
+    改以軌跡紀錄為單一事實來源後，四份報表彼此必定一致，
+    且都採用最可靠的那個版本的車種判定。
+
     所有 CSV 皆以 UTF-8 with BOM 編碼輸出，確保在 Windows 的 Excel
     直接雙擊開啟時中文不會變成亂碼。
 
 建立日期：2025-02-05
-版本號：v1.0.0
+最後更新：2026-10-03（改為以軌跡紀錄為單一事實來源）
+版本號：v1.1.0
 """
 
 import csv
@@ -50,16 +59,14 @@ class ReportNode:
 
         self.vehicle_types = VehicleTypeRegistry(config["vehicle_types"])
 
-        self._entry_events: list = []
-        self._movement_events: list = []
-        self._vehicle_records: list = []
+        self._vehicles: list = []     # 所有已離場的 TrackElement
         self._road_ids: set = set()
         self._last_timestamp = 0.0
         self._finalized = False
 
     @profile_time
     def process(self, element):
-        """累積事件與軌跡紀錄；收到結束訊號時輸出報表。"""
+        """累積離場軌跡；收到結束訊號時輸出報表。"""
         self._collect(element)
 
         if isinstance(element, StreamEndElement) and not self._finalized:
@@ -71,23 +78,24 @@ class ReportNode:
     # 資料蒐集
     # ------------------------------------------------------------------
     def _collect(self, element) -> None:
-        """把本幀的計數事件與離場軌跡收進暫存。"""
+        """把本幀離場的軌跡收進暫存。"""
         self._last_timestamp = max(self._last_timestamp, element.timestamp)
 
-        for event in element.count_events:
-            if event["事件"] == "進入":
-                self._entry_events.append(event)
-                self._road_ids.add(event["道路"])
-            elif event["事件"] == "轉向":
-                self._movement_events.append(event)
-                self._road_ids.add(event["進入道路"])
-                self._road_ids.add(event["離開道路"])
-
         for track in element.retired_tracks:
-            record = track.to_record()
-            # 標示此筆是否通過計數門檻，便於人工抽查與誤差分析
-            record["是否計入統計"] = "是" if track.counted_entry else "否"
-            self._vehicle_records.append(record)
+            self._vehicles.append(track)
+            if track.entry_road is not None:
+                self._road_ids.add(track.entry_road)
+            if track.exit_road is not None:
+                self._road_ids.add(track.exit_road)
+
+    @property
+    def _counted(self) -> list:
+        """通過計數門檻的軌跡，是所有統計報表的母體。"""
+        return [t for t in self._vehicles if t.counted_entry]
+
+    def _type_of(self, track) -> str:
+        """取得軌跡的最終車種，未能判定時歸入未知類別。"""
+        return track.vehicle_type or self.vehicle_types.unknown_label
 
     # ------------------------------------------------------------------
     # 報表輸出
@@ -118,45 +126,39 @@ class ReportNode:
     def _write_vehicle_details(self) -> None:
         """輸出車輛明細：每台車一列，供人工抽查與準確度驗證。"""
         fieldnames = [
-            "追蹤編號",
-            "車種",
-            "進入道路",
-            "進入時間_秒",
-            "離開道路",
-            "離開時間_秒",
-            "首次出現_秒",
-            "最後出現_秒",
-            "存活秒數",
-            "辨識幀數",
-            "區域序列",
-            "是否計入統計",
+            "追蹤編號", "車種", "進入道路", "進入時間_秒", "離開道路", "離開時間_秒",
+            "首次出現_秒", "最後出現_秒", "存活秒數", "辨識幀數", "區域序列", "是否計入統計",
         ]
-        rows = sorted(self._vehicle_records, key=lambda r: r["追蹤編號"])
+        rows = []
+        for track in self._vehicles:
+            record = track.to_record()
+            record["是否計入統計"] = "是" if track.counted_entry else "否"
+            rows.append(record)
+
+        rows.sort(key=lambda r: r["追蹤編號"])
         self._write_csv("車輛明細.csv", fieldnames, rows)
 
     def _write_interval_flow(self) -> None:
         """輸出時段流量：時間區間 × 道路 × 車種的車次與 PCU。"""
-        vehicle_labels = self._used_vehicle_labels()
+        vehicle_labels = self.vehicle_types.labels
         roads = self._sorted_roads()
 
         # {(區間索引, 道路): Counter(車種)}
         buckets: dict = defaultdict(Counter)
-        for event in self._entry_events:
-            bucket_index = int(event["時間"] // self.interval_seconds)
-            buckets[(bucket_index, event["道路"])][event["車種"]] += 1
+        for track in self._counted:
+            bucket_index = int(track.entry_timestamp // self.interval_seconds)
+            buckets[(bucket_index, track.entry_road)][self._type_of(track)] += 1
 
         fieldnames = ["時段起_秒", "時段迄_秒", "道路"] + vehicle_labels + ["小計", "PCU小計"]
         rows = []
 
-        total_buckets = self._total_bucket_count()
-        for bucket_index in range(total_buckets):
+        for bucket_index in range(self._total_bucket_count()):
             start = bucket_index * self.interval_seconds
-            end = start + self.interval_seconds
             for road in roads:
                 counter = buckets.get((bucket_index, road), Counter())
                 row = {
                     "時段起_秒": round(start, 1),
-                    "時段迄_秒": round(end, 1),
+                    "時段迄_秒": round(start + self.interval_seconds, 1),
                     "道路": road,
                 }
                 subtotal = 0
@@ -177,8 +179,9 @@ class ReportNode:
         roads = self._sorted_roads()
 
         matrix: dict = defaultdict(int)
-        for event in self._movement_events:
-            matrix[(event["進入道路"], event["離開道路"])] += 1
+        for track in self._counted:
+            if track.counted_movement:
+                matrix[(track.entry_road, track.exit_road)] += 1
 
         fieldnames = ["進入道路＼離開道路"] + [f"往道路{road}" for road in roads] + ["合計"]
         rows = []
@@ -206,14 +209,14 @@ class ReportNode:
 
     def _write_summary(self) -> None:
         """輸出統計總表：全時段各道路的車次、車種組成、PCU 與平均流率。"""
-        vehicle_labels = self._used_vehicle_labels()
+        vehicle_labels = self.vehicle_types.labels
         roads = self._sorted_roads()
         duration = max(self._last_timestamp, 1e-6)
         duration_hours = duration / 3600.0
 
         per_road: dict = defaultdict(Counter)
-        for event in self._entry_events:
-            per_road[event["道路"]][event["車種"]] += 1
+        for track in self._counted:
+            per_road[track.entry_road][self._type_of(track)] += 1
 
         fieldnames = (
             ["道路"] + vehicle_labels + ["車次合計", "PCU合計", "平均流率_輛每小時", "組成佔比"]
@@ -256,11 +259,14 @@ class ReportNode:
         total_row["組成佔比"] = "100.0%" if total_vehicles else "0.0%"
         rows.append(total_row)
 
+        movements = sum(1 for t in self._counted if t.counted_movement)
+
         # 分析條件列，讓報表本身即可交代數據產生的前提
         rows.append({"道路": ""})
         rows.append({"道路": f"分析時長_秒：{round(duration, 1)}"})
         rows.append({"道路": f"統計區間_秒：{round(self.interval_seconds, 1)}"})
-        rows.append({"道路": f"轉向紀錄筆數：{len(self._movement_events)}"})
+        rows.append({"道路": f"轉向紀錄筆數：{movements}"})
+        rows.append({"道路": f"未計入統計的軌跡數：{len(self._vehicles) - len(self._counted)}"})
         rows.append({"道路": f"報表產生時間：{datetime.now():%Y-%m-%d %H:%M:%S}"})
 
         self._write_csv("統計總表.csv", fieldnames, rows)
@@ -271,15 +277,6 @@ class ReportNode:
     def _sorted_roads(self) -> list:
         """回傳排序後的道路編號，確保各報表欄位順序一致。"""
         return sorted(self._road_ids)
-
-    def _used_vehicle_labels(self) -> list:
-        """
-        回傳報表要呈現的車種欄位。
-
-        以設定檔的完整車種清單為準（而非實際出現的車種），
-        欄位結構才不會因不同影片而改變，便於多支影片的結果橫向比較。
-        """
-        return self.vehicle_types.labels
 
     def _total_bucket_count(self) -> int:
         """計算需要輸出幾個時間區間，至少一個。"""
