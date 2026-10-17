@@ -5,7 +5,7 @@
 以 pytest 撰寫的單元測試。專案規範要求整體覆蓋率 ≥ 70%、核心邏輯 ≥ 90%，
 門檻寫在 `pytest.ini` 的 `--cov-fail-under`，未達標時測試直接視為失敗。
 
-**目前狀態：232 個測試、整體覆蓋率 87%，核心統計模組 99%。**
+**目前狀態：351 個測試、整體覆蓋率 91%，核心統計模組 99%。**
 
 ## 技術棧
 
@@ -29,7 +29,13 @@ tests/
 ├── test_video_io_nodes.py         影像讀取、影片輸出
 ├── test_render_and_detection.py   疊圖繪製、車種還原邏輯
 ├── test_zone_editor.py            區域編輯器邏輯、座標換算
-└── test_accuracy_check.py         誤差指標計算
+├── test_accuracy_check.py         誤差指標計算
+├── test_line_geometry_and_phf.py  計數線幾何、尖峰小時係數、lap 相容層
+├── test_line_counting.py          越線計數、越線報表、計數線繪製
+├── test_cctv_and_extras.py        路口來源解析、熱力圖、PHF 報表、串流重連、節點組裝
+├── test_export_dashboard.py       成果展示網頁資料匯出
+├── test_direction_and_multiview.py  進入方向判定、多格畫面排版、路口執行緒
+└── test_detail_panel.py           詳細資料面板、每分鐘車流紀錄
 ```
 
 ## 命名規範
@@ -83,11 +89,20 @@ python -m pytest --cov-report=html         產生 HTML 覆蓋率報告
 6. **相容層數值**（`test_cython_bbox.py`）
    以手算值確認 IoU 與原始 C 擴充套件完全一致（含 +1 像素慣例）。
 
+7. **越線方向與去重**（`test_line_counting.py`）
+   進出方向不得顛倒；車輛在線上抖動只能計一次；未達門檻的軌跡不得產生紀錄。
+
+8. **lap 相容層**（`test_line_geometry_and_phf.py`）
+   配對結果與成本上限的語意須與原套件一致，否則追蹤行為會改變。
+
+網路相關的測試一律以替身取代連線函式與 `cv2.VideoCapture`，不會真的連到交通局伺服器。
+
 ## 未覆蓋的部分與原因
 
 | 模組 | 覆蓋率 | 未覆蓋的原因 |
 |------|--------|-------------|
 | `nodes/detection_tracking_node.py` | 48% | 建構子會載入 YOLO 權重、`process()` 需實際推論。純邏輯部分（追蹤器輸入組裝、車種還原）已以 `object.__new__` 繞過建構子完整覆蓋 |
+| `multiview/camera_pipeline.py` | 43% | 建構子會開啟串流並載入 YOLO 權重。字級縮放的計算已覆蓋，整條流水線以實際串流手動驗證 |
 | `tools/zone_editor.py` | 71% | cv2 的互動主迴圈需要真實鍵盤滑鼠事件。狀態管理與座標換算已完整覆蓋 |
 | `tools/accuracy_check.py` | 67% | 命令列進入點與主控台輸出格式。所有計算邏輯已完整覆蓋 |
 
@@ -105,4 +120,4 @@ python -m pytest --cov-report=html         產生 HTML 覆蓋率報告
 
 ---
 **建立日期**：2026-10-03
-**最後更新**：2026-10-03（初版建立）
+**最後更新**：2026-10-09（v1.2.0 新增六個測試檔，共 351 個測試）

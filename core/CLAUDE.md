@@ -36,6 +36,7 @@ core/
 | 追蹤 | `tracked_ids`, `tracked_conf`, `tracked_cls`, `tracked_xyxy` |
 | 軌跡維護 | `active_tracks`, `retired_tracks` |
 | 計數 | `count_events`, `statistics` |
+| 越線計數 | `line_events`（本幀結算的越線紀錄） |
 | 繪製 | `frame_result` |
 
 ### TrackElement
@@ -48,17 +49,18 @@ core/
 | `exit_road` / `exit_timestamp` | 離開道路與時間（第一個不同於進入道路的區域） |
 | `zone_sequence` | 依序造訪過的區域，供除錯與人工驗證 |
 | `counted_entry` / `counted_movement` | 計數旗標，保證每台車只計一次 |
+| `entry_unseen` | 只拍到離開、沒拍到進入；為真時 `observe_zone()` 不再推導進出 |
 | `vehicle_type` | 生命週期多數決得出的車種（唯讀屬性） |
 | `vote_count` | 成功辨識的幀數（唯讀屬性） |
 | `lifetime` | 軌跡存活秒數（唯讀屬性） |
 
 主要方法：`update()` 更新時間與位置、`vote_vehicle_type()` 累積車種投票、
-`observe_zone()` 記錄所在區域並推導進出道路、`to_record()` 轉為報表用紀錄。
+`observe_zone()` 記錄所在區域並推導進出道路、`mark_exit_only()` 標記只拍到離開的車、`to_record()` 轉為報表用紀錄。
 
 ### StreamEndElement
 
 影像來源結束的標記。刻意保留與 `FrameElement` 同名的統計欄位
-（`active_tracks`、`retired_tracks`、`count_events`、`statistics`），
+（`active_tracks`、`retired_tracks`、`count_events`、`statistics`、`line_events`），
 讓「軌跡收尾 → 計數 → 報表」這條收尾路徑不需要額外的特例分支。
 
 ## 變更日誌參考
@@ -67,4 +69,4 @@ core/
 
 ---
 **建立日期**：2024-12-18
-**最後更新**：2025-01-15（新增 TrackElement，支援進出道路判定與車種投票）
+**最後更新**：2026-10-09（v1.2.0 新增 line_events 欄位與 TrackElement.mark_exit_only）

@@ -23,7 +23,12 @@ nodes/
 ├── counting_node.py              精確累計計數、轉向 OD、即時流率
 ├── render_node.py                疊加圖層繪製（區域、邊界框、統計面板）
 ├── report_node.py                四份 CSV 報表輸出
-└── video_writer_node.py          成果影片輸出
+├── video_writer_node.py          成果影片輸出
+├── line_counting_node.py         越線計數（進入／離開路口）
+├── line_render_node.py           計數線與越線車次繪製
+├── line_report_node.py           三份越線報表輸出
+├── heatmap_node.py               軌跡熱力圖
+└── phf_report_node.py            尖峰小時係數報表
 ```
 
 **相依方向**（單向，不得反向相依）：
@@ -45,6 +50,14 @@ nodes/ ──→ core/      （資料結構）
 | `RenderNode` | FrameElement | `frame_result` |
 | `VideoWriterNode` | FrameElement | 寫出 `分析結果.mp4` |
 | `ReportNode` | FrameElement | 寫出 4 份 CSV |
+| `LineCountingNode` | FrameElement | `line_events`, `statistics["越線計數"]` |
+| `LineRenderNode` | FrameElement | 在 `frame_result` 上加畫計數線 |
+| `LineReportNode` | FrameElement | 寫出 `越線明細.csv`、`越線計數.csv`、`越線轉向矩陣.csv` |
+| `HeatmapNode` | FrameElement | 寫出 `軌跡熱力圖.png` |
+| `PhfReportNode` | FrameElement | 寫出 `尖峰小時係數.csv` |
+
+v1.2.0 新增的五個節點皆可個別開關，由根目錄的 `pipeline_builder.py` 依設定建立，
+停用時既有七個節點的行為完全不變。
 
 ## 設計要點
 
@@ -66,6 +79,32 @@ nodes/ ──→ core/      （資料結構）
 以「最後出現時間」超過 `track_timeout_secs` 判定離場，
 並把離場軌跡完整交給下游，確保每台車都會被結算且只結算一次。
 收到 `StreamEndElement` 時一次清空所有殘留軌跡，避免影片尾端的車輛漏計。
+
+### 進入方向判定（track_update_node.py）
+
+建構子可選擇性傳入 `DirectionGate`。有傳入時，區域觀測改由它處理：
+車輛移動一小段後才依行進方向決定第一個區域是進入還是離開。
+未傳入時維持「第一個踩到的區域即為進入道路」的原規則，既有測試與內附影片的結果不變。
+
+### 越線計數（line_counting_node.py）
+
+- 以車輛前後兩幀的位移線段是否與計數線相交來判定，低幀率串流下不漏判
+- 同一台車對同一條線的同一方向只記一次，避免在線上抖動造成重複計數
+- 計數門檻與 `CountingNode` 相同；越線當下未達門檻者先暫存，達門檻後補計
+- 最終紀錄在軌跡離場時產生，車種採離場時的多數決，與 `ReportNode` 的原則一致
+- 只讀取軌跡，不修改 `CountingNode` 的任何統計，兩套計數並存
+
+### 串流重連（video_reader_node.py）
+
+交通局的 MJPEG 串流實測約 30 秒會被伺服器中斷一次。
+`reconnect_attempts` 大於 0 時，讀取失敗會重新開啟串流後繼續；
+以「連續失敗次數」計算，成功讀到一幀即歸零。預設值 0 維持原本「讀不到即結束」的行為。
+重連期間的影像會遺失，該時段內通過的車輛不會被計入。
+
+### 熱力圖的亮度上限（heatmap_node.py）
+
+一台長時間停等的車會讓單點數值遠高於其他位置。
+若以最大值正規化，整張圖只會剩一個亮點，故改以 `clip_percentile` 百分位數為上限。
 
 ## 開發指令
 
@@ -90,4 +129,4 @@ python main.py hydra.job_logging.root.level=DEBUG  輸出各節點耗時，定�
 
 ---
 **建立日期**：2024-12-20
-**最後更新**：2025-02-14（新增 RenderNode 與 VideoWriterNode，節點全數到位）
+**最後更新**：2026-10-09（v1.2.0 新增越線計數、熱力圖、尖峰小時係數節點、串流重連與進入方向判定）

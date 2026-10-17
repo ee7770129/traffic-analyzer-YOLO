@@ -7,7 +7,7 @@
 
 ## 技術棧
 
-NumPy、Shapely、Pillow、OpenCV
+NumPy、Shapely、Pillow、OpenCV、PyYAML
 
 ## 架構依賴圖
 
@@ -19,6 +19,10 @@ utils/
 ├── text_drawer.py       以 Pillow 在 OpenCV 影像上繪製繁體中文
 ├── fps_counter.py       滑動視窗 FPS 計算
 ├── profiler.py          節點耗時量測裝飾器
+├── line_geometry.py     計數線幾何：代表點、線段相交、越線方向
+├── phf.py               尖峰小時係數計算
+├── cctv_source.py       路口 CCTV 目錄載入與串流網址查詢
+├── direction_gate.py    依行進方向判定車輛的第一個區域是進入還是離開
 └── vendor_path.py       第三方套件路徑註冊（有 sys.path 副作用）
 ```
 
@@ -37,6 +41,10 @@ utils/
 | `fps_counter` | `FPSCounter.update()` | 視窗未滿時回傳 0.0，避免初期數值跳動 |
 | `profiler` | `@profile_time` | DEBUG 等級輸出，平時不影響效能 |
 | `vendor_path` | 匯入即生效 | 將專案根目錄與 `vendor/` 加入 `sys.path` |
+| `line_geometry` | `anchor_point()`, `crossing_direction()`, `segments_intersect()` | 以線段相交判定越線，低幀率下不漏判 |
+| `phf` | `compute_phf()`, `bin_counts()` | 觀測不足一小時回傳 `None`，不以外插值充數 |
+| `direction_gate` | `DirectionGate.observe()`, `.forget()` | 不匯入 core，只呼叫傳入軌跡物件的方法 |
+| `cctv_source` | `load_catalog()`, `resolve_camera()`, `fetch_stream_url()` | 連線函式可替換，測試不需連網 |
 
 ## 設計要點
 
@@ -56,10 +64,22 @@ utils/
 依設定檔的 `font_candidates` 順序尋找第一個實際存在的字型檔。
 全部找不到時退回 Pillow 預設字型並輸出警告，中文會顯示為方框但程式不會中斷。
 
+### 越線方向判定（line_geometry.py）
+
+計數線本身沒有方向，進出是相對於設定檔中的 `inside_point`（路口內側的參考點）決定：
+車輛越線後若與參考點位於線的同一側，即為「進入」，反之為「離開」。
+因此設定計數線時不必在意兩個端點的先後順序。
+
+### 串流網址為什麼要即時查詢（cctv_source.py）
+
+交通局攝影機頁面內嵌的串流網址帶有一段代碼，無法保證長期不變。
+設定檔只登記攝影機編號，每次啟動時再向頁面查出目前的網址。
+頁面格式若改版導致查不到，會拋出 `CctvSourceError` 並說明原因。
+
 ## 變更日誌參考
 
 詳見 `../CHANGELOG.md`
 
 ---
 **建立日期**：2024-12-18
-**最後更新**：2025-02-14（新增 TextDrawer，並記錄色彩轉換的效能調校結果）
+**最後更新**：2026-10-09（v1.2.0 新增 line_geometry、phf、cctv_source、direction_gate）

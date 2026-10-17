@@ -9,6 +9,7 @@
 |------|-----------|
 | `zone_editor.py` | 換影片時不必手算像素座標去改 JSON |
 | `accuracy_check.py` | 自動算出人工計數與系統計數的誤差率 |
+| `export_dashboard.py` | 把一次分析的輸出轉成成果展示網頁的資料 |
 
 ## 技術棧
 
@@ -20,13 +21,14 @@ OpenCV（滑鼠互動與影格讀取）、Pillow（中文繪字）、Python csv�
 tools/
 ├── CLAUDE.md
 ├── zone_editor.py        道路區域座標編輯器（GUI）
-└── accuracy_check.py     準確度驗證（純命令列）
+├── accuracy_check.py     準確度驗證（純命令列）
+└── export_dashboard.py   成果展示網頁資料匯出（純命令列）
 ```
 
 **相依方向**：
 
 ```
-tools/ ──→ utils/      （zone_editor 使用 TextDrawer 繪中文）
+tools/ ──→ utils/      （zone_editor 使用 TextDrawer；export_dashboard 使用 cctv_source）
 tools/ ──X nodes/      不相依，工具不介入流水線
 tools/ ──X core/       不相依
 ```
@@ -112,6 +114,29 @@ tools/ ──X core/       不相依
 1,機車,3                      2,8
 ```
 
+## export_dashboard.py — 成果展示網頁資料匯出
+
+### 為什麼需要
+
+分析需要 GPU 與 OpenCV，無法在靜態網站代管服務上執行。
+網頁（`web/`）因此只負責呈現，數據由本工具從輸出資料夾轉出：
+
+| 產出 | 來源 |
+|------|------|
+| `web/data/summary.json` | 各路口的 `車輛明細.csv`、三份越線報表、`尖峰小時係數.csv`，以及路口目錄 |
+| `web/assets/heatmap_<路口>.jpg` | 各路口的 `軌跡熱力圖.png` |
+| `web/assets/result.jpg` | `多路口畫面.jpg`；沒有時改取 `分析結果.mp4` 中的一幀（預設 90% 位置） |
+
+來源檔不存在時該項略過，不會中斷。要更新網頁數據時，重新執行本工具後再部署一次。
+
+多路口模式的輸出資料夾內，每個路口各有一個以預設組名稱命名的子資料夾，工具會自動辨識；
+單路口模式的報表直接放在輸出資料夾，須以 `--camera` 指明是哪個路口。
+
+```
+python tools/export_dashboard.py --run outputs/<執行時間>                          多路口
+python tools/export_dashboard.py --run outputs/<執行時間> --camera wuquan_fuxing   單路口
+```
+
 ## 開發指令
 
 ```
@@ -135,4 +160,4 @@ python tools/accuracy_check.py --result outputs/20250224_143052
 
 ---
 **建立日期**：2026-10-03
-**最後更新**：2026-10-03（初版建立）
+**最後更新**：2026-10-09（v1.2.0 新增 export_dashboard，支援單路口與多路口輸出）
