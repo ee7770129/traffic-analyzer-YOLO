@@ -14,11 +14,13 @@
     python multi_view.py                                  以設定檔的路口清單執行
     python multi_view.py cctv.max_duration_secs=600       分析十分鐘後自動結束
     python multi_view.py multi_view.columns=4             改為橫向一排
+    python multi_view.py multi_view.record_video=true     同時把多格畫面錄成影片
 
     在畫面上按 Q 或 Esc 結束，各路口會完成結算並輸出報表。
 
 建立日期：2026-10-08
-版本號：v1.2.0
+最後更新：2026-10-17（新增多格畫面錄影）
+版本號：v1.2.1
 """
 
 import logging
@@ -43,6 +45,7 @@ from multiview.camera_pipeline import CameraPipeline
 from multiview.camera_worker import STATUS_ENDED, STATUS_ERROR, CameraWorker
 from multiview.detail_panel import DetailPanel
 from multiview.flow_history import FlowHistory
+from multiview.mosaic_recorder import build_recorder
 from multiview.mosaic import build_cell, cell_origin, compose_grid, format_caption
 from utils.cctv_source import load_catalog, resolve_camera
 from utils.text_drawer import TextDrawer
@@ -162,6 +165,7 @@ def main(config) -> None:
     )
 
     workers = build_workers(config, run_dir)
+    recorder = build_recorder(view_cfg, run_dir)
 
     # 右側詳細資料面板：寬度設為 0 即停用，只顯示路口畫面
     panel = None
@@ -188,6 +192,8 @@ def main(config) -> None:
     try:
         while True:
             mosaic = draw()
+            if recorder is not None:
+                recorder.write(mosaic)
 
             if show_window:
                 display = mosaic
@@ -219,6 +225,8 @@ def main(config) -> None:
                 logger.warning("路口「%s」未在時限內完成收尾，其報表可能不完整。", worker.camera_name)
         if show_window:
             cv2.destroyAllWindows()
+        if recorder is not None:
+            recorder.close()
 
     if mosaic is not None:
         # 收尾後再取一次，讓存檔的畫面帶有最終統計
