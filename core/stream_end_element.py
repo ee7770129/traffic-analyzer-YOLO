@@ -35,3 +35,4 @@ class StreamEndElement:
         self.retired_tracks: list = []   # 影片結束時一次清空的所有殘留軌跡
         self.count_events: list = []
         self.statistics: dict = {}
+        self.line_events: list = []      # 收尾時結算的越線紀錄

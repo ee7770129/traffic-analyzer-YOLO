@@ -70,6 +70,7 @@ class FrameElement:
         # ---- 統計結果 ----
         self.count_events: list = []    # 本幀新產生的計數事件
         self.statistics: dict = {}      # 供繪圖與報表使用的彙總資訊
+        self.line_events: list = []     # 本幀結算的越線紀錄（LineCountingNode）
 
         # ---- 輸出 ----
         self.frame_result: Optional[np.ndarray] = None  # 疊加圖層後的成果影格
