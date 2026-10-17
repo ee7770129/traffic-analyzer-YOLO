@@ -32,12 +32,15 @@ logger = logging.getLogger(__name__)
 class TrackUpdateNode:
     """車輛軌跡生命週期管理。"""
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, direction_gate=None) -> None:
         """
         參數：
-            config: 完整設定檔，使用 general 區段的 track_timeout_secs。
+            config:         完整設定檔，使用 general 區段的 track_timeout_secs。
+            direction_gate: 選用的進入方向判定器（utils.direction_gate.DirectionGate）。
+                            未提供時維持「第一個踩到的區域即為進入道路」的原規則。
         """
         general_cfg = config["general"]
+        self.direction_gate = direction_gate
 
         # 超過此秒數未再被偵測到，即視為車輛已離開畫面
         self.track_timeout_secs = float(general_cfg["track_timeout_secs"])
@@ -78,7 +81,11 @@ class TrackUpdateNode:
 
             track.update(timestamp, xyxy)
             track.vote_vehicle_type(label)
-            track.observe_zone(locate_zone(xyxy, self._polygons), timestamp)
+            zone_id = locate_zone(xyxy, self._polygons)
+            if self.direction_gate is not None:
+                self.direction_gate.observe(track, zone_id, xyxy, timestamp)
+            else:
+                track.observe_zone(zone_id, timestamp)
 
             active_tracks[track_id] = track
 
@@ -106,6 +113,8 @@ class TrackUpdateNode:
         retired = []
         for track_id in stale_ids:
             retired.append(self._tracks.pop(track_id))
+            if self.direction_gate is not None:
+                self.direction_gate.forget(track_id)
 
         if retired:
             logger.debug("軌跡離場 %d 筆：%s", len(retired), [t.track_id for t in retired])

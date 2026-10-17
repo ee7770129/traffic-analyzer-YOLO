@@ -41,6 +41,7 @@ class TrackElement:
         self.exit_road: Optional[int] = None       # 離開圓環所經的道路編號
         self.exit_timestamp: Optional[float] = None
         self.zone_sequence: list = []              # 依序造訪過的區域，供除錯與驗證
+        self.entry_unseen = False                  # 只拍到離開、沒拍到進入（見 mark_exit_only）
 
         # ---- 車種投票 ----
         self._class_votes: Counter = Counter()
@@ -86,6 +87,10 @@ class TrackElement:
         if zone_id is None:
             return
 
+        # 已判定為「只拍到離開」的車輛不再推導進出，否則後續區域會被誤記為進入道路
+        if self.entry_unseen:
+            return
+
         # 只在區域切換時記錄，避免同一區域被重複塞入序列
         if not self.zone_sequence or self.zone_sequence[-1] != zone_id:
             self.zone_sequence.append(zone_id)
@@ -96,6 +101,19 @@ class TrackElement:
         elif zone_id != self.entry_road and self.exit_road is None:
             self.exit_road = zone_id
             self.exit_timestamp = float(timestamp)
+
+    def mark_exit_only(self, zone_id: int, timestamp: float) -> None:
+        """
+        標記此車「只拍到離開、沒拍到進入」。
+
+        用於車輛第一次被偵測到時已經朝路口外行駛的情況：
+        所在區域是它的離開道路，進入道路未知，因此不計入進入流量與轉向矩陣。
+        """
+        self.entry_unseen = True
+        self.exit_road = zone_id
+        self.exit_timestamp = float(timestamp)
+        if not self.zone_sequence or self.zone_sequence[-1] != zone_id:
+            self.zone_sequence.append(zone_id)
 
     # ------------------------------------------------------------------
     # 衍生屬性
