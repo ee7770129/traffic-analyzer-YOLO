@@ -6,8 +6,8 @@
             頁面不執行任何分析，所有數據來自 data/summary.json
             （由 tools/export_dashboard.py 產生）。
   建立日期：2026-10-08
-  最後更新：2026-10-09（改為可呈現多個路口）
-  版本號：v1.2.0
+  最後更新：2026-10-17（分析畫面改為循環播放的分析影片）
+  版本號：v1.2.1
 -->
 <html lang="zh-Hant">
 <head>
@@ -31,8 +31,14 @@
 
     <section class="panel">
       <h2><span class="material-symbols-outlined">videocam</span>分析畫面</h2>
-      <p class="hint">黃線為計數線，彩色框為各道路的偵測區域。標示的「進／出」是車輛越過該線進入或離開路口的次數。灰色框是進入道路尚未判定的車輛。</p>
-      <img class="shot" src="assets/result.jpg" alt="疊加偵測框與計數線的路口畫面">
+      <p class="hint">黃線為計數線，彩色框為各道路的偵測區域。標示的「進／出」是車輛越過該線進入或離開路口的次數。灰色框是進入道路尚未判定的車輛。右側為分析當下的即時統計。</p>
+      <!-- 分析錄影的 30 秒片段（tools/make_web_clip.py 產生）；無法播放時顯示封面截圖 -->
+      <video class="shot" src="assets/result.mp4" poster="assets/result.jpg"
+             autoplay muted loop playsinline preload="metadata"
+             aria-label="疊加偵測框與計數線的路口分析影片">
+        <img class="shot" src="assets/result.jpg" alt="疊加偵測框與計數線的路口畫面">
+      </video>
+      <p class="hint">影片為分析錄影中車流最多的 30 秒片段，循環播放。</p>
     </section>
 
     <!-- 各路口的統計由 app.js 依資料逐一產生 -->
