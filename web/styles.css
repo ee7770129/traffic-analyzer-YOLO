@@ -1,0 +1,268 @@
+/*
+  請務必保持 UTF-8 編碼。
+  檔案名稱：成果展示網頁樣式
+  功能說明：扁平、簡潔的版面，支援手機寬度與深色模式。
+  建立日期：2026-10-08
+  版本號：v1.2.0
+*/
+
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --text: #1c2530;
+  --muted: #5b6b7b;
+  --line: #dde3ea;
+  --accent: #0b6e99;
+  --accent-soft: #e3f1f7;
+  --warn-bg: #fff6e0;
+  --warn-text: #6b4a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12171d;
+    --surface: #1b232c;
+    --text: #e8edf2;
+    --muted: #9aa9b8;
+    --line: #2c3743;
+    --accent: #5cc1e8;
+    --accent-soft: #1d3340;
+    --warn-bg: #33290f;
+    --warn-text: #f1d48a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.page-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 32px 0 24px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+h1 {
+  overflow-wrap: anywhere;
+  margin: 4px 0 6px;
+  font-size: clamp(26px, 5vw, 38px);
+  line-height: 1.25;
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.stat .label {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stat .value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat .unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.panel {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.panel h2 .material-symbols-outlined {
+  color: var(--accent);
+}
+
+.intersection .stats {
+  margin: 12px 0 4px;
+}
+
+.intersection .stat {
+  background: var(--bg);
+}
+
+.subsection {
+  border-top: 1px solid var(--line);
+  margin-top: 20px;
+  padding-top: 16px;
+}
+
+.subsection h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.subsection h3 .material-symbols-outlined {
+  color: var(--accent);
+  font-size: 20px;
+}
+
+.hint {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.shot {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th, td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+td.num, th.num {
+  text-align: right;
+}
+
+tr.total td {
+  font-weight: 700;
+  background: var(--accent-soft);
+}
+
+.cameras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.camera {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.camera.current {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.camera .name {
+  font-weight: 700;
+}
+
+.camera .spec {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 2px 0 10px;
+}
+
+.camera a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.camera a:hover {
+  text-decoration: underline;
+}
+
+.camera .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.limits ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+.notice {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 20px 0 0;
+}
+
+.page-footer {
+  color: var(--muted);
+  font-size: 13px;
+  padding-top: 8px;
+  padding-bottom: 32px;
+}

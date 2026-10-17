@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!--
+  請務必保持 UTF-8 編碼。
+  檔案名稱：成果展示網頁
+  功能說明：以靜態頁面呈現一次路口分析的結果，可同時呈現多個路口。
+            頁面不執行任何分析，所有數據來自 data/summary.json
+            （由 tools/export_dashboard.py 產生）。
+  建立日期：2026-10-08
+  最後更新：2026-10-09（改為可呈現多個路口）
+  版本號：v1.2.0
+-->
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>台中路口車流分析</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <div class="wrap">
+      <p class="eyebrow">中興大學周邊路口　YOLO 車流分析</p>
+      <h1 id="page-title">載入中</h1>
+      <p class="meta" id="run-meta"></p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p class="notice" id="load-error" hidden></p>
+
+    <section class="panel">
+      <h2><span class="material-symbols-outlined">videocam</span>分析畫面</h2>
+      <p class="hint">黃線為計數線，彩色框為各道路的偵測區域。標示的「進／出」是車輛越過該線進入或離開路口的次數。灰色框是進入道路尚未判定的車輛。</p>
+      <img class="shot" src="assets/result.jpg" alt="疊加偵測框與計數線的路口畫面">
+    </section>
+
+    <!-- 各路口的統計由 app.js 依資料逐一產生 -->
+    <div id="intersections"></div>
+
+    <section class="panel">
+      <h2><span class="material-symbols-outlined">location_on</span>已設定的路口</h2>
+      <p class="hint">以下路口都已設定完成，可直接切換分析。即時影像由臺中市政府交通局提供。</p>
+      <div class="cameras" id="cameras"></div>
+    </section>
+
+    <section class="panel limits">
+      <h2><span class="material-symbols-outlined">info</span>引用數據前請留意</h2>
+      <ul>
+        <li>本頁數據尚未與人工計數比對，實際誤差率未知。</li>
+        <li>模型使用通用的預訓練權重，夜間與遠處的機車容易漏偵測。</li>
+        <li>即時影像每秒約 4 至 10 幀，車流密集時追蹤可能中斷而重複計數或漏計。</li>
+        <li>偵測區域與計數線為初步劃設，尚未逐一校正。</li>
+        <li>轉向矩陣只統計在畫面中同時拍到進入與離開的車輛，合計會少於越線車次。</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="wrap page-footer">
+    <p>影像來源：臺中市政府交通局 即時交通資訊。分析程式：TrafficAnalyzer_TW。</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

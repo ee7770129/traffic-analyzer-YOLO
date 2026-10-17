@@ -9,6 +9,10 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.coverage
+
+# ---- 靜態網站部署工具的本機設定 ----
+.vercel/
 
 # ---- 本機環境設定（含路徑與金鑰，不得提交）----
 .env
