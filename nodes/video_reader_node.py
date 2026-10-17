@@ -61,6 +61,12 @@ class VideoReaderNode:
 
         self.skip_secs = float(config.get("skip_secs", 0))
 
+        # 網路串流斷線時的重連設定；預設 0 次，維持「讀不到即結束」的原行為
+        self.reconnect_attempts = int(config.get("reconnect_attempts", 0))
+        self.reconnect_wait_secs = float(config.get("reconnect_wait_secs", 1.0))
+        self.reconnect_count = 0
+        self._consecutive_failures = 0
+
         # 影片總幀數用於顯示處理進度；串流來源取不到時為 0
         self.total_frames = int(self.stream.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         self.source_fps = float(self.stream.get(cv2.CAP_PROP_FPS) or 0.0)
@@ -95,11 +101,16 @@ class VideoReaderNode:
         while True:
             ok, frame = self.stream.read()
 
+            # 網路串流偶爾會被伺服器中斷，先嘗試重新連線，失敗才視為來源結束
+            if not ok and self.is_stream and self._reconnect():
+                continue
+
             if not ok:
                 logger.info("影像來源已讀取完畢，共處理 %d 幀", frame_number)
                 yield StreamEndElement(self.source_name, self._last_timestamp, frame_number)
                 break
 
+            self._consecutive_failures = 0
             timestamp = self._current_timestamp(frame_number)
 
             # 依設定抽幀：兩幀時間差不足 skip_secs 時直接跳過，不進入後續運算
@@ -119,6 +130,27 @@ class VideoReaderNode:
             )
 
         self.release()
+
+    def _reconnect(self) -> bool:
+        """
+        重新開啟網路串流。
+
+        回傳：
+            成功重新連線為 True；未啟用重連或嘗試次數用盡為 False。
+        """
+        # 以「連續失敗次數」計算，中間只要成功讀到一幀就歸零；
+        # 避免連得上卻讀不到影像時無止盡地重試
+        while self._consecutive_failures < self.reconnect_attempts:
+            self._consecutive_failures += 1
+            logger.warning("串流中斷，嘗試重新連線（第 %d／%d 次）",
+                           self._consecutive_failures, self.reconnect_attempts)
+            self.stream.release()
+            time.sleep(self.reconnect_wait_secs)
+            self.stream = cv2.VideoCapture(self.source_path)
+            if self.stream.isOpened():
+                self.reconnect_count += 1
+                return True
+        return False
 
     def _current_timestamp(self, frame_number: int) -> float:
         """

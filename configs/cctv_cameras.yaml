@@ -1,0 +1,85 @@
+# 請以繁體中文產生程式碼註解。請務必保持 UTF-8 編碼。
+#
+# 檔案名稱：路口 CCTV 目錄
+# 功能說明：登記可直接分析的路口即時影像。啟動時以
+#               python main.py cctv.camera=wuquan_fuxing
+#           指定路口預設組，程式會自動查出目前的串流網址，
+#           並套用該路口專屬的區域座標與計數線。
+#
+#           新增路口的步驟：
+#             1. 到交通局 CCTV 清單查出攝影機編號（CCTVInfoAPI 的 cctv 欄位後 7 碼）
+#             2. 在下方 cameras 新增一組
+#             3. 以 edit_zones.bat 繪製該路口的區域座標
+#             4. 參考既有檔案撰寫計數線設定
+#
+# 資料來源：臺中市政府交通局 即時交通資訊
+# 建立日期：2026-10-08
+# 版本號：v1.2.0
+
+# 攝影機頁面網址樣板，{camera_id} 會代入各路口的攝影機編號
+page_url_template: "https://motoretag.taichung.gov.tw/ATIS_TCC/Device/Showcctv?id={camera_id}"
+request_timeout_secs: 15
+
+# 量測值為 2026-10-08 夜間實測，僅供選擇路口時參考
+cameras:
+  # ---- 多路口模式預設使用的兩個路口 ----
+  # 選用條件：鏡頭正對道路、日夜兩次抽查的視角相同、白天仍有約 10 FPS
+  wuquanxi_meicun:
+    name: 五權西路／美村路
+    camera_id: C000257
+    resolution: 1280x720
+    measured_fps: 10.0
+    roads_info: configs/cctv/wuquanxi_meicun_zones.json
+    lines_file: configs/cctv/wuquanxi_meicun_lines.json
+
+  wenxinnan_fuxing:
+    name: 文心南路／復興路
+    camera_id: C000031
+    resolution: 1280x720
+    measured_fps: 10.0
+    roads_info: configs/cctv/wenxinnan_fuxing_zones.json
+    lines_file: configs/cctv/wenxinnan_fuxing_lines.json
+
+  # ---- 其他已設定的路口 ----
+  # 五權路／民生路：白天實測僅約 6 FPS（多人同時連線時更低），會嚴重漏計
+  wuquan_minsheng:
+    name: 五權路／民生路
+    camera_id: C000387
+    resolution: 1920x1080
+    measured_fps: 6.0
+    roads_info: configs/cctv/wuquan_minsheng_zones.json
+    lines_file: configs/cctv/wuquan_minsheng_lines.json
+
+  # 五權路／復興路：鏡頭會轉動變焦，2026-10-09 白天的視角已與前一晚不同，
+  # 現有的區域與計數線對不上白天的畫面
+  wuquan_fuxing:
+    name: 五權路／復興路
+    camera_id: C000302
+    resolution: 1280x1024
+    measured_fps: 9.5
+    roads_info: configs/cctv/wuquan_fuxing_zones.json
+    lines_file: configs/cctv/wuquan_fuxing_lines.json
+
+  wuquannan_gaogong:
+    name: 五權南路／高工路
+    camera_id: C000050
+    resolution: 1280x720
+    measured_fps: 10.2
+    roads_info: configs/cctv/wuquannan_gaogong_zones.json
+    lines_file: configs/cctv/wuquannan_gaogong_lines.json
+
+  wuquannan_zhongmingnan:
+    name: 五權南路／忠明南路
+    camera_id: C000030
+    resolution: 720x480
+    measured_fps: 5.0
+    roads_info: configs/cctv/wuquannan_zhongmingnan_zones.json
+    lines_file: configs/cctv/wuquannan_zhongmingnan_lines.json
+
+  zhongmingnan_fuxing:
+    name: 忠明南路／復興路
+    camera_id: C000056
+    resolution: 640x360
+    measured_fps: 7.1
+    roads_info: configs/cctv/zhongmingnan_fuxing_zones.json
+    lines_file: configs/cctv/zhongmingnan_fuxing_lines.json
