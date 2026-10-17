@@ -172,6 +172,30 @@ multi_view:
     hero: 36
   flow_history_minutes: 10    # 「每分鐘車流」顯示最近幾分鐘
 
+  # 多格畫面錄影（v1.2.1）：連同右側面板錄成影片，供成果網頁剪成短片
+  record_video: false
+  record_name: 多路口錄影.mp4
+  record_fps: 10              # 依實際經過時間補幀，影片第 N 秒即分析開始後第 N 秒
+  record_fourcc: mp4v
+
+# --------------------------------------------------------------------------
+# 成果網頁短片（v1.2.1 新增，由 tools/make_web_clip.py 使用）
+# --------------------------------------------------------------------------
+web_clip:
+  ffmpeg_bin: ${oc.env:TRAFFIC_FFMPEG_BIN,ffmpeg}
+  # H.264 編碼器：h264_mf 為 Windows 內建（Anaconda 的 ffmpeg 不含 libx264），
+  # 其他平台可改為 libx264
+  video_codec: ${oc.env:TRAFFIC_VIDEO_CODEC,h264_mf}
+  duration_secs: 30           # 短片長度；自動挑選越線車次最多的時段
+  skip_head_secs: 20          # 開頭幾秒不選（串流剛連上、統計還是零）
+  width: 1280                 # 輸出寬度，高度等比例
+  fps: 10
+  max_size_mb: 5
+  size_fill_ratio: 0.85       # 位元率以大小上限的此比例估算，預留封裝與編碼誤差
+  retry_scale: 0.8            # 仍超過上限時位元率乘上此值重試
+  max_attempts: 4
+  output: web/assets/result.mp4
+
 # --------------------------------------------------------------------------
 # 越線計數（v1.2.0 新增）
 # --------------------------------------------------------------------------
