@@ -5,7 +5,7 @@
 以 pytest 撰寫的單元測試。專案規範要求整體覆蓋率 ≥ 70%、核心邏輯 ≥ 90%，
 門檻寫在 `pytest.ini` 的 `--cov-fail-under`，未達標時測試直接視為失敗。
 
-**目前狀態：351 個測試、整體覆蓋率 91%，核心統計模組 99%。**
+**目前狀態：375 個測試、整體覆蓋率 92%，核心統計模組 99%。**
 
 ## 技術棧
 
@@ -35,7 +35,9 @@ tests/
 ├── test_cctv_and_extras.py        路口來源解析、熱力圖、PHF 報表、串流重連、節點組裝
 ├── test_export_dashboard.py       成果展示網頁資料匯出
 ├── test_direction_and_multiview.py  進入方向判定、多格畫面排版、路口執行緒
-└── test_detail_panel.py           詳細資料面板、每分鐘車流紀錄
+├── test_detail_panel.py           詳細資料面板、每分鐘車流紀錄
+├── test_mosaic_recorder.py        多格畫面錄影的補幀與檔名處理（v1.2.1）
+└── test_make_web_clip.py          網頁短片的片段挑選、ffmpeg 指令與重試（v1.2.1）
 ```
 
 ## 命名規範
@@ -120,4 +122,4 @@ python -m pytest --cov-report=html         產生 HTML 覆蓋率報告
 
 ---
 **建立日期**：2026-10-03
-**最後更新**：2026-10-09（v1.2.0 新增六個測試檔，共 351 個測試）
+**最後更新**：2026-10-17（v1.2.1 新增兩個測試檔，共 375 個測試）

@@ -566,6 +566,21 @@ python tools/export_dashboard.py --run outputs/<執行時間> --camera wuquan_fu
 即可把該次分析的數據與圖片寫入 `web/`，再把 `web/` 資料夾部署到靜態代管服務。
 網頁本身不做分析，分析仍須在有 GPU 的電腦上執行。
 
+網頁上的分析影片（v1.2.1）來自多路口模式的錄影：
+
+```
+python multi_view.py multi_view.record_video=true cctv.max_duration_secs=600
+python tools/export_dashboard.py --run outputs/<執行時間>
+python tools/make_web_clip.py --run outputs/<執行時間>
+```
+
+第一行錄 10 分鐘（含右側詳細資料面板），第三行會自動挑出越線車次最多的 30 秒，
+轉成 5 MB 以下的 `web/assets/result.mp4`。剪輯需要 ffmpeg；不在 PATH 中時，
+請在 `.env` 設定 `TRAFFIC_FFMPEG_BIN`。
+
+目前部署在 Vercel，專案設定為 Root Directory = `web`、Framework Preset = Other、
+Production Branch = `research/nchu`，push 該分支即自動更新網站。
+
 ---
 
 ## 驗證準確度

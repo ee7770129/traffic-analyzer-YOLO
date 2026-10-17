@@ -10,6 +10,7 @@
 | `zone_editor.py` | 換影片時不必手算像素座標去改 JSON |
 | `accuracy_check.py` | 自動算出人工計數與系統計數的誤差率 |
 | `export_dashboard.py` | 把一次分析的輸出轉成成果展示網頁的資料 |
+| `make_web_clip.py` | 從分析錄影剪出網頁用的 30 秒短片（v1.2.1） |
 
 ## 技術棧
 
@@ -22,7 +23,8 @@ tools/
 ├── CLAUDE.md
 ├── zone_editor.py        道路區域座標編輯器（GUI）
 ├── accuracy_check.py     準確度驗證（純命令列）
-└── export_dashboard.py   成果展示網頁資料匯出（純命令列）
+├── export_dashboard.py   成果展示網頁資料匯出（純命令列）
+└── make_web_clip.py      成果網頁短片剪輯（純命令列，需 ffmpeg）
 ```
 
 **相依方向**：
@@ -137,6 +139,38 @@ python tools/export_dashboard.py --run outputs/<執行時間>                   
 python tools/export_dashboard.py --run outputs/<執行時間> --camera wuquan_fuxing   單路口
 ```
 
+## make_web_clip.py — 成果網頁短片剪輯
+
+### 為什麼需要
+
+成果網頁原本只有一張截圖，看不出系統「在跑」。錄影動輒數百 MB，不能直接放進儲存庫，
+本工具把它剪成約 30 秒、5 MB 以下、瀏覽器與手機可直接播放的短片 `web/assets/result.mp4`。
+
+### 流程
+
+```
+① 找錄影       多路口錄影.mp4（multi_view.record_video=true）優先，其次 分析結果.mp4
+② 挑片段       讀所有 越線明細.csv 的「時間_秒」，找出越線車次最多的 duration_secs 秒
+               （略過開頭 skip_head_secs 秒，片段須完整落在影片內）
+③ 轉檔         ffmpeg：H.264、yuv420p、無音訊、faststart
+④ 控制大小     位元率 = max_size_mb × size_fill_ratio ÷ 片段長度；
+               仍超過上限時乘上 retry_scale 重試，最多 max_attempts 次
+```
+
+### 關鍵設計
+
+- **時間對齊**：即時串流的報表時間是自第一幀起算的系統時間，錄影器也依經過時間補幀，
+  兩者只差連線所需的數秒，因此可直接用越線時間挑片段。
+- **以位元率控制大小**：Anaconda 內附的 ffmpeg 不含 libx264，預設改用 Windows 內建的 `h264_mf`，
+  它不支援 crf，但所有編碼器都支援位元率。編碼器由 `web_clip.video_codec`（`TRAFFIC_VIDEO_CODEC`）切換。
+- **ffmpeg 不寫死**：路徑來自設定檔 `web_clip.ffmpeg_bin`（環境變數 `TRAFFIC_FFMPEG_BIN`），
+  外部指令的執行函式可替換，測試不需要安裝 ffmpeg。
+
+```
+python tools/make_web_clip.py --run outputs/<執行時間>              自動挑選片段
+python tools/make_web_clip.py --run outputs/<執行時間> --start 120  指定起點（秒）
+```
+
 ## 開發指令
 
 ```
@@ -160,4 +194,4 @@ python tools/accuracy_check.py --result outputs/20250224_143052
 
 ---
 **建立日期**：2026-10-03
-**最後更新**：2026-10-09（v1.2.0 新增 export_dashboard，支援單路口與多路口輸出）
+**最後更新**：2026-10-17（v1.2.1 新增 make_web_clip 成果網頁短片剪輯）

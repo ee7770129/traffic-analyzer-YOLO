@@ -2,7 +2,7 @@
 
 ## 專案定位
 
-**開發期間**：2024 年 12 月 ～ 2025 年 2 月　|　**目前版本**：v1.2.0（2026-10-08）
+**開發期間**：2024 年 12 月 ～ 2025 年 2 月　|　**目前版本**：v1.2.1（2026-10-17）
 
 > 安裝與操作說明請見 [README.md](./README.md)，本文件著重於架構與設計決策。
 
@@ -163,21 +163,25 @@ TrafficAnalyzer_TW/
 │   ├── camera_worker.py             讓一條流水線在自己的執行緒中運作
 │   ├── mosaic.py                    多格畫面排版
 │   ├── detail_panel.py              右側詳細資料面板
-│   └── flow_history.py              每分鐘車流紀錄
+│   ├── flow_history.py              每分鐘車流紀錄
+│   └── mosaic_recorder.py           多格畫面錄影（v1.2.1）
 │
 ├── tools/                           獨立工具（詳見 tools/CLAUDE.md）
 │   ├── zone_editor.py               道路區域座標編輯器
 │   ├── accuracy_check.py            準確度驗證
-│   └── export_dashboard.py          成果展示網頁資料匯出
+│   ├── export_dashboard.py          成果展示網頁資料匯出
+│   └── make_web_clip.py             成果網頁短片剪輯（v1.2.1）
 │
 ├── tests/                           單元測試（詳見 tests/CLAUDE.md）
 │   ├── conftest.py                  共用設定與 fixture
-│   └── test_*.py                    351 個測試，覆蓋率 91%
+│   └── test_*.py                    375 個測試，覆蓋率 92%
 │
 ├── web/                             成果展示網頁（純靜態）
 │   ├── index.html / styles.css / app.js
 │   ├── data/summary.json            由 export_dashboard.py 產生
-│   └── assets/                      熱力圖與代表畫面
+│   └── assets/                      熱力圖、封面截圖、分析短片 result.mp4
+│
+├── 計畫記錄區/                       AI 計畫記錄（每個計畫一份 md）
 │
 ├── vendor/byte_tracker/             第三方 ByteTrack（原樣保存，不修改）
 ├── weights/yolov8m.pt               YOLO 權重
@@ -235,6 +239,16 @@ multi_view.cameras 的每個路口
 主執行緒定期取各路口的最新畫面與統計
    → mosaic 排成左側的路口畫面
    → DetailPanel 繪製右側的詳細資料
+   → MosaicRecorder 錄成 多路口錄影.mp4（multi_view.record_video=true 時）
+```
+
+成果展示網頁的更新流程：
+
+```
+多路口錄影（record_video=true）
+   → tools/export_dashboard.py   summary.json、熱力圖、封面截圖
+   → tools/make_web_clip.py      依越線明細挑出最熱鬧的 30 秒 → web/assets/result.mp4
+   → git push research/nchu      Vercel 自動部署 web/
 ```
 
 **計數判定規則**（決定數據可信度的核心）：
@@ -291,14 +305,15 @@ multi_view.cameras 的每個路口
 | 一鍵啟動批次檔 | 已完成 | `START.bat` / `run.bat` / `run_export.bat` |
 | **區域座標編輯工具** | 已完成 | `edit_zones.bat`，換影片不必再手改 JSON |
 | **準確度驗證模組** | 已完成 | `check_accuracy.bat`，產出誤差率報表 |
-| **單元測試** | 已完成 | 351 個測試、覆蓋率 91%，`run_tests.bat` |
+| **單元測試** | 已完成 | 375 個測試、覆蓋率 92%，`run_tests.bat` |
 | **路口即時影像分析** | 已完成 | `run_cctv.bat`，內建七個中興大學周邊路口，串流中斷自動重連 |
 | **多路口同步分析** | 已完成 | `run_multi.bat`，預設兩個路口上下排列，右側為詳細資料面板 |
 | **進入方向判定** | 已完成 | 朝路口外行駛的車不再被誤判為進入 |
 | **越線計數** | 已完成 | 依越線方向區分進入與離開，低幀率下不漏判 |
 | **軌跡熱力圖** | 已完成 | 分析結束時輸出 |
 | **尖峰小時係數（PHF）** | 已完成 | 需觀測滿一小時 |
-| **成果展示網頁** | 已完成 | `web/`，以 `tools/export_dashboard.py` 更新數據 |
+| **成果展示網頁** | 已完成 | `web/`，以 `tools/export_dashboard.py` 更新數據，部署於 Vercel |
+| **多格畫面錄影與網頁短片** | 已完成 | v1.2.1，網頁循環播放分析影片 |
 
 ### 已知限制（引用數據前必讀）
 
@@ -378,10 +393,14 @@ python main.py line_counting.lines_file=configs/cctv/wuquan_fuxing_lines.json   
 ### 更新成果展示網頁
 
 ```
-python tools/export_dashboard.py --run outputs/<執行時間> --camera wuquan_fuxing
+python multi_view.py multi_view.record_video=true cctv.max_duration_secs=600   錄 10 分鐘
+python tools/export_dashboard.py --run outputs/<執行時間>                       更新數據與圖片
+python tools/make_web_clip.py --run outputs/<執行時間>                          剪出 30 秒短片
 ```
 
-執行後 `web/` 內的數據與圖片即更新，重新部署 `web/` 資料夾即可。
+單路口的輸出資料夾，`export_dashboard.py` 須加上 `--camera <路口預設組>`。
+完成後 commit 並 push `research/nchu`，Vercel 會自動部署 `web/`
+（Vercel 專案設定：Root Directory = `web`、Framework Preset = Other、Production Branch = `research/nchu`）。
 
 ### 換一段新影片要做什麼
 
@@ -420,6 +439,6 @@ python tools/export_dashboard.py --run outputs/<執行時間> --camera wuquan_fu
 
 ---
 
-**文檔版本**：v1.2.0
+**文檔版本**：v1.2.1
 **建立日期**：2024-12-09
-**最後更新**：2026-10-09（v1.2.0 新增多路口同步分析、詳細資料面板、進入方向判定）
+**最後更新**：2026-10-17（v1.2.1 新增多格畫面錄影、網頁短片剪輯，成果網頁部署於 Vercel）

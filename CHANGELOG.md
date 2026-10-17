@@ -7,6 +7,40 @@
 
 ---
 
+## [v1.2.1] - 2026-10-17
+
+成果展示網頁的分析畫面由靜態截圖改為循環播放的分析影片，網頁已部署於 Vercel（`research/nchu` 分支的 `web/`）。
+
+### 新增 - 多路口畫面錄影
+
+- `multiview/mosaic_recorder.py`：把多路口模式的多格畫面（含右側詳細資料面板）錄成 `多路口錄影.mp4`。
+- 依實際經過時間補幀，影片第 N 秒即分析開始後第 N 秒，可直接對照報表中的時間。
+- 先寫 ASCII 暫存檔再改名，避開 OpenCV 在 Windows 無法寫入中文路徑的問題。
+- 設定 `multi_view.record_video`（預設 `false`），未開啟時多路口模式的行為不變；
+  `multi_view.py` 僅新增建立、寫入、關閉錄影器的數行。
+
+### 新增 - 成果網頁短片剪輯
+
+- `tools/make_web_clip.py`：由錄影剪出網頁用的短片 `web/assets/result.mp4`。
+- 依各路口 `越線明細.csv` 自動挑選越線車次最多的 30 秒；亦可以 `--start` 指定起點。
+- 以 ffmpeg 轉為 H.264（yuv420p、無音訊、faststart）。依大小上限估算位元率，仍超過時降低位元率重試。
+- 以位元率而非 crf 控制大小：Anaconda 內附的 ffmpeg 不含 libx264，改用 Windows 內建的 `h264_mf`，
+  而它不支援 crf。編碼器可由 `web_clip.video_codec` 切換。
+- 設定區段 `web_clip`；ffmpeg 路徑與編碼器以環境變數 `TRAFFIC_FFMPEG_BIN`、`TRAFFIC_VIDEO_CODEC` 指定（已同步 `.env.example`）。
+
+### 變更 - 成果展示網頁
+
+- `web/index.html`：分析畫面改為 `<video autoplay muted loop playsinline>`，原截圖作為封面與無法播放時的備援。
+- 網頁數據、熱力圖、封面與影片改以 2026-10-17 夜間的同一次多路口錄影重新匯出
+  （`outputs/20261017_231930`，10 分鐘；短片取第 228～258 秒，越線 33 車次，3.97 MB）。
+
+### 測試
+
+- 新增 `tests/test_mosaic_recorder.py`、`tests/test_make_web_clip.py`（21 個測試，ffmpeg 以假函式代替）。
+- 全部 375 個測試通過，整體覆蓋率 92%。
+
+---
+
 ## [v1.2.0] - 2026-10-09
 
 改以台灣的路口即時影像為分析對象，並新增三項分析功能與成果展示網頁。
