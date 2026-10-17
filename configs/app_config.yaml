@@ -48,6 +48,11 @@ general:
   min_vote_count: 5           # 成功辨識幀數門檻，用於濾除破碎軌跡
   flow_window_secs: 30.0      # 即時流率的滑動視窗長度（秒）
 
+  # 依行進方向判定進入道路（v1.2.0）：車輛第一次出現時若正朝路口外行駛，
+  # 該區域記為離開道路而非進入道路。需要計數線設定檔中的路口參考點才會生效
+  direction_aware_entry: true
+  direction_min_move_px: 12   # 判定方向前車輛至少要移動的像素距離
+
 # --------------------------------------------------------------------------
 # 車種對照與 PCU 當量
 # --------------------------------------------------------------------------
@@ -80,6 +85,8 @@ video_reader:
   skip_secs: 0            # 抽幀間隔（秒），0 表示逐幀處理
   camera_width: 1920      # 僅在來源為攝影機時生效
   camera_height: 1080
+  reconnect_attempts: 5   # 網路串流中斷時的重連次數，0 表示不重連
+  reconnect_wait_secs: 1.0
 
 detection_node:
   weight_pth: ${oc.env:TRAFFIC_WEIGHTS,weights/yolov8m.pt}
@@ -128,3 +135,69 @@ video_writer_node:
 
 output:
   folder: ${oc.env:TRAFFIC_OUTPUT_DIR,outputs}   # 所有執行結果的根目錄
+
+# --------------------------------------------------------------------------
+# 路口 CCTV 即時影像（v1.2.0 新增）
+# --------------------------------------------------------------------------
+cctv:
+  # 路口預設組名稱（見 configs/cctv_cameras.yaml）；留空則使用 video_reader.src
+  camera: ${oc.env:TRAFFIC_CCTV_CAMERA,null}
+  catalog: ${oc.env:TRAFFIC_CCTV_CATALOG,configs/cctv_cameras.yaml}
+  # 即時串流不會自己結束，達到此秒數後自動收尾並輸出報表；0 表示不限制
+  max_duration_secs: ${oc.env:TRAFFIC_MAX_DURATION_SECS,0}
+
+# --------------------------------------------------------------------------
+# 多路口同步分析（v1.2.0 新增，由 multi_view.py 使用）
+# --------------------------------------------------------------------------
+multi_view:
+  # 要同時分析的路口預設組，依序由左至右、由上至下排列
+  cameras:
+    - wuquanxi_meicun
+    - wenxinnan_fuxing
+  columns: 1                  # 每列幾格；1 為上下排列，2 個路口配 2 則為左右排列
+  cell_width: 804             # 每格影像區的大小（像素），影像等比例縮放後置中
+  cell_height: 452
+  caption_height: 36          # 每格上方標題列的高度
+  window_scale: 1.0           # 整張多格畫面的顯示縮放
+  refresh_ms: 100             # 畫面更新間隔（毫秒）
+  stop_timeout_secs: 20       # 結束時等待各路口完成收尾的秒數
+  snapshot_name: 多路口畫面.jpg
+
+  # 右側詳細資料面板（寬螢幕版面）；panel_width 設為 0 即停用
+  panel_width: 1080
+  panel_font_sizes:
+    small: 17
+    normal: 21
+    large: 28
+    hero: 36
+  flow_history_minutes: 10    # 「每分鐘車流」顯示最近幾分鐘
+
+# --------------------------------------------------------------------------
+# 越線計數（v1.2.0 新增）
+# --------------------------------------------------------------------------
+line_counting:
+  enabled: true
+  # 計數線設定檔；使用路口預設組時由目錄檔自動帶入，留空則停用越線計數
+  lines_file: ${oc.env:TRAFFIC_LINES_FILE,null}
+  anchor: bottom_center       # 車輛代表點：bottom_center（底邊中點）或 center
+  line_color: [0, 255, 255]   # BGR
+  line_thickness: 2
+
+# --------------------------------------------------------------------------
+# 軌跡熱力圖（v1.2.0 新增）
+# --------------------------------------------------------------------------
+heatmap_node:
+  enabled: true
+  anchor: bottom_center
+  blur_sigma: 12.0            # 高斯模糊強度，越大熱區越平滑
+  alpha: 0.65                 # 熱力圖疊加在底圖上的最大不透明度
+  clip_percentile: 99.0       # 以此百分位數為亮度上限，避免單一停等車輛蓋過其他動線
+  output_name: 軌跡熱力圖.png
+
+# --------------------------------------------------------------------------
+# 尖峰小時係數（v1.2.0 新增）
+# --------------------------------------------------------------------------
+phf_node:
+  enabled: true
+  period_secs: 900            # 子區間長度（15 分鐘）
+  periods_per_hour: 4

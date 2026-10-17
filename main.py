@@ -45,6 +45,7 @@ from nodes.report_node import ReportNode
 from nodes.track_update_node import TrackUpdateNode
 from nodes.video_reader_node import VideoReaderNode
 from nodes.video_writer_node import VideoWriterNode
+from pipeline_builder import build_direction_gate, build_extra_nodes, resolve_reader_config
 
 logger = logging.getLogger("main")
 
@@ -59,22 +60,34 @@ def _build_run_dir(config) -> str:
     return run_dir
 
 
-def _run_analysis_chain(element, detector, track_updater, counter, renderer, writer, reporter):
+def _run_analysis_chain(
+    element, detector, track_updater, counter, renderer, writer, reporter, extras=None
+):
     """
     讓單一元素依序流經分析鏈。
 
     繪製、影片輸出、報表三個節點可依設定停用，因此需逐一判斷。
+    extras 為擴充節點（越線計數、熱力圖、尖峰小時係數），
+    依其性質插入計數之後、繪製之後、報表之後三個位置。
     """
+    extras = extras or {}
+
     element = detector.process(element)
     element = track_updater.process(element)
     element = counter.process(element)
+    for node in extras.get("analysis", []):
+        element = node.process(element)
 
     if renderer is not None:
         element = renderer.process(element)
+        for node in extras.get("render", []):
+            element = node.process(element)
     if writer is not None:
         element = writer.process(element)
     if reporter is not None:
         element = reporter.process(element)
+    for node in extras.get("report", []):
+        element = node.process(element)
 
     return element
 
@@ -123,15 +136,23 @@ def main(config) -> None:
     logger.info("本次執行的輸出資料夾：%s", os.path.abspath(run_dir))
 
     # ---- 建立節點 ----
-    reader = VideoReaderNode(config["video_reader"])
+    reader_cfg, lines_file, source_label = resolve_reader_config(config)
+    logger.info("影像來源：%s", source_label)
+    max_duration_secs = float(config["cctv"]["max_duration_secs"] or 0)
+
+    reader = VideoReaderNode(reader_cfg)
     detector = DetectionTrackingNode(config)
-    track_updater = TrackUpdateNode(config)
+    track_updater = TrackUpdateNode(config, build_direction_gate(config, lines_file))
     counter = CountingNode(config)
 
     # 預覽或存檔任一啟用時才需要繪製，純批次統計可關閉以提升速度
     renderer = RenderNode(config) if (show_window or save_video) else None
     writer = VideoWriterNode(config["video_writer_node"], run_dir) if save_video else None
     reporter = ReportNode(config, run_dir) if write_report else None
+    extras = build_extra_nodes(
+        config, run_dir, lines_file,
+        with_render=renderer is not None, with_report=write_report,
+    )
 
     window_scale = float(config["render_node"]["window_scale"])
     last_statistics: dict = {}
@@ -140,14 +161,21 @@ def main(config) -> None:
     try:
         for element in reader.process():
             element = _run_analysis_chain(
-                element, detector, track_updater, counter, renderer, writer, reporter
+                element, detector, track_updater, counter, renderer, writer, reporter, extras
             )
 
             # 影片讀完：報表已於 ReportNode 內完成輸出，可直接結束
             if isinstance(element, StreamEndElement):
+                last_statistics = element.statistics or last_statistics
                 break
 
             last_statistics = element.statistics
+
+            # 即時串流不會自己結束，達到時間上限即比照使用者中止的方式收尾
+            if max_duration_secs > 0 and element.timestamp >= max_duration_secs:
+                logger.info("已達分析時間上限 %.0f 秒，進行統計收尾……", max_duration_secs)
+                stopped_by_user = True
+                break
 
             if show_window:
                 display_frame = element.frame_result
@@ -171,7 +199,7 @@ def main(config) -> None:
         if stopped_by_user:
             end_element = StreamEndElement(reader.source_name, reader.last_timestamp)
             end_element = _run_analysis_chain(
-                end_element, detector, track_updater, counter, renderer, writer, reporter
+                end_element, detector, track_updater, counter, renderer, writer, reporter, extras
             )
             last_statistics = end_element.statistics
 
