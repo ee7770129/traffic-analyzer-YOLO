@@ -49,6 +49,11 @@ body {
   padding: 0 20px;
 }
 
+/* 主內容與頂端標題列之間留白（v1.2.2） */
+main.wrap {
+  padding-top: 24px;
+}
+
 .page-header {
   background: var(--surface);
   border-bottom: 1px solid var(--line);
