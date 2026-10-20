@@ -4,6 +4,8 @@
 
 輸入一段路口影片，輸出各方向進入流量、車種組成、轉向 OD 矩陣、時段流量報表與標註影片。
 
+**成果展示網頁**：<https://traffic-analyzer-yolo.vercel.app/>
+
 ```
 ┌──────────────┐     ┌────────────────────────┐     ┌──────────────┐
 │              │     │                        │     │              │
@@ -578,7 +580,7 @@ python tools/make_web_clip.py --run outputs/<執行時間>
 轉成 5 MB 以下的 `web/assets/result.mp4`。剪輯需要 ffmpeg；不在 PATH 中時，
 請在 `.env` 設定 `TRAFFIC_FFMPEG_BIN`。
 
-目前部署在 Vercel，專案設定為 Root Directory = `web`、Framework Preset = Other、
+目前部署在 Vercel（<https://traffic-analyzer-yolo.vercel.app/>），專案設定為 Root Directory = `web`、Framework Preset = Other、
 Production Branch = `research/nchu`，push 該分支即自動更新網站。
 
 ---
